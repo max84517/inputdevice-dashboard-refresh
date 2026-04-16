@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "inputdevice-dashboard-refresh"
+version = "1.0.0"
+description = "Shipment Report Dashboard Refresh"
+authors = ["HP Inc"]
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+openpyxl = "^3.1"
+pandas = "^2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
