@@ -484,9 +484,9 @@ class ShipmentApp:
             if len(frames) > 1:
                 drop_single = []
                 for col in merged.columns:
-                    if col == "GTK Supplier":
+                    if col == "GTK Suppliers":
                         continue
-                    suppliers_with_data = merged.loc[merged[col].notna(), "GTK Supplier"].unique()
+                    suppliers_with_data = merged.loc[merged[col].notna(), "GTK Suppliers"].unique()
                     if len(suppliers_with_data) == 1:
                         drop_single.append(col)
                 if drop_single:

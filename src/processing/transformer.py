@@ -118,6 +118,9 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
         if result:
             value_col_meta[col] = result
         else:
+            # Skip any existing "GTK Supplier(s)" column — we inject our own from the folder name
+            if str(col).strip().lower() in ("gtk supplier", "gtk suppliers"):
+                continue
             feature_cols.append(col)
 
     # Drop rows where Platforms is blank
@@ -217,7 +220,7 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
     )
 
     # Add GTK Supplier column
-    long_df.insert(0, "GTK Supplier", supplier_name)
+    long_df.insert(0, "GTK Suppliers", supplier_name)
 
     # Strip string columns
     for col in long_df.select_dtypes(include="object").columns:
