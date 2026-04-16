@@ -37,6 +37,15 @@ FONT_TITLE = ("Segoe UI", 13, "bold")
 FONT_SMALL = ("Segoe UI", 9)
 
 
+DEFAULT_KEEP_COLUMNS = [
+    "GTK Suppliers", "SPM (Project Owner)", "Category", "Segment", "Series",
+    "Production Year", "Platforms", "Product", "Size", "Color", "Location",
+    "ODM", "Region", "HP/ODM Part#", "HP Cost", "Unit Rebate", "Q'ty",
+    "Rebate Amount", "ODM Cost", "Spending Amount", "Actual Spending",
+    "Month", "Year", "FY", "Supplier Part#",
+]
+
+
 def _style_btn(btn, bg=ACCENT, fg=BTN_FG, hover=ACCENT_HOVER):
     btn.configure(bg=bg, fg=fg, activebackground=hover, activeforeground=fg,
                   relief="flat", cursor="hand2", font=FONT, bd=0, padx=8, pady=4)
@@ -62,6 +71,9 @@ class ShipmentApp:
         self.supplier_file_idx: dict[str, int] = {}
         # {supplier: StringVar}  displayed file name
         self.supplier_file_labels: dict[str, tk.StringVar] = {}
+
+        # Keep-columns config
+        self.keep_columns: list[str] = self.cfg.get("keep_columns", list(DEFAULT_KEEP_COLUMNS))
 
         # Log queue for real-time updates from background thread
         self._log_queue: queue.Queue = queue.Queue()
@@ -176,9 +188,71 @@ class ShipmentApp:
         _style_btn(self.process_btn, bg="#2d7a2d", hover="#3a9a3a")
         self.process_btn.pack(side="left")
 
+        self.powerbi_btn = tk.Button(bot, text="Export for PowerBI", command=self._ask_powerbi_export)
+        _style_btn(self.powerbi_btn, bg="#6b3a9e", hover="#7e4db8")
+        self.powerbi_btn.pack(side="left", padx=(10, 0))
+
+        manage_col_btn = tk.Button(bot, text="⚙ Columns", command=self._manage_columns)
+        _style_btn(manage_col_btn, bg=BG3, hover="#555555")
+        manage_col_btn.pack(side="left", padx=(10, 0))
+
         self.status_var = tk.StringVar(value="Ready.")
         tk.Label(bot, textvariable=self.status_var, bg=BG, fg=FG,
                  font=FONT_SMALL).pack(side="left", padx=16)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Manage Columns dialog
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _manage_columns(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Manage Output Columns")
+        dialog.configure(bg=BG)
+        dialog.grab_set()
+        dialog.resizable(True, True)
+        dialog.geometry("400x520")
+
+        tk.Label(dialog, text="Columns to keep in output (one per line):",
+                 bg=BG, fg=FG, font=FONT_BOLD, pady=8).pack(fill="x", padx=14)
+
+        text_frame = tk.Frame(dialog, bg=BG, padx=14)
+        text_frame.pack(fill="both", expand=True)
+
+        txt = tk.Text(text_frame, bg=ENTRY_BG, fg=FG, insertbackground=FG,
+                      font=FONT_SMALL, relief="flat", bd=3, wrap="none")
+        sb = tk.Scrollbar(text_frame, orient="vertical", command=txt.yview)
+        txt.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        txt.pack(side="left", fill="both", expand=True)
+
+        # Populate with current list
+        txt.insert("1.0", "\n".join(self.keep_columns))
+
+        btn_frame = tk.Frame(dialog, bg=BG, pady=10)
+        btn_frame.pack(fill="x", padx=14)
+
+        def reset_default():
+            txt.delete("1.0", "end")
+            txt.insert("1.0", "\n".join(DEFAULT_KEEP_COLUMNS))
+
+        def save():
+            raw = txt.get("1.0", "end")
+            cols = [c.strip() for c in raw.splitlines() if c.strip()]
+            self.keep_columns = cols
+            save_config({"keep_columns": cols})
+            dialog.destroy()
+
+        save_btn = tk.Button(btn_frame, text="Save", command=save)
+        _style_btn(save_btn)
+        save_btn.pack(side="left", padx=(0, 8))
+
+        reset_btn = tk.Button(btn_frame, text="Reset to Default", command=reset_default)
+        _style_btn(reset_btn, bg=BG3, hover="#555555")
+        reset_btn.pack(side="left", padx=(0, 8))
+
+        cancel_btn = tk.Button(btn_frame, text="Cancel", command=dialog.destroy)
+        _style_btn(cancel_btn, bg=BG3, hover="#555555")
+        cancel_btn.pack(side="left")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Logging
@@ -492,6 +566,14 @@ class ShipmentApp:
                 if drop_single:
                     merged.drop(columns=drop_single, inplace=True)
                     self._log(f"Dropped {len(drop_single)} supplier-specific column(s): {drop_single}")
+
+            # Keep only configured columns (preserve order, skip missing)
+            keep = [c for c in self.keep_columns if c in merged.columns]
+            missing = [c for c in self.keep_columns if c not in merged.columns]
+            merged = merged[keep]
+            if missing:
+                self._log(f"Note: {len(missing)} keep-column(s) not found in data: {missing}")
+            self._log(f"Output columns ({len(keep)}): {keep}")
 
             out_path = save_history(merged, sheet_name, self.history_dir)
             self._log(f"Saved history: {Path(out_path).name}")
