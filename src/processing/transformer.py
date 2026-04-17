@@ -77,7 +77,7 @@ def read_sheet(file_path: str, sheet_name: str) -> pd.DataFrame:
     Header is row 2 (0-indexed: row index 1).
     Returns raw DataFrame.
     """
-    wb = openpyxl.load_workbook(file_path, data_only=True)
+    wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
     ws = wb[sheet_name]
 
     rows = list(ws.iter_rows(values_only=True))

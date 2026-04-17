@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from src.config import load_config, save_config
 from src.ingestion.fetcher import get_suppliers, fetch_supplier_files
-from src.processing.transformer import get_fy_sheets, consolidate_suppliers
+from src.processing.transformer import get_fy_sheets, consolidate_suppliers, copy_source_file, process_supplier_sheet
 from src.export.exporter import save_history, get_available_fy, merge_for_powerbi
 
 # ─── Dark theme colours ───────────────────────────────────────────────────────
@@ -87,6 +87,12 @@ class ShipmentApp:
         self._build_ui()
         self._restore_state()
         self._poll_log()  # start real-time log polling
+        # Pre-warm heavy imports so first supplier doesn't pay the cold-start cost
+        threading.Thread(target=self._prewarm, daemon=True).start()
+
+    def _prewarm(self):
+        import openpyxl  # noqa: F401
+        import pandas    # noqa: F401
 
     # ─────────────────────────────────────────────────────────────────────────
     # UI Construction
@@ -349,12 +355,20 @@ class ShipmentApp:
             return
 
         self.status_var.set("Fetching files…")
+        self.fetch_btn.configure(state="disabled")
         self.root.update_idletasks()
 
-        file_lists = fetch_supplier_files(base, selected)
+        def _do_fetch():
+            file_lists = fetch_supplier_files(base, selected)
+            self.root.after(0, lambda: self._on_fetch_done(file_lists, selected))
+
+        threading.Thread(target=_do_fetch, daemon=True).start()
+
+    def _on_fetch_done(self, file_lists: dict, selected: list):
         self.supplier_file_lists = file_lists
         self.supplier_file_idx = {s: 0 for s in selected}
         self.supplier_file_labels = {}
+        self.fetch_btn.configure(state="normal")
 
         self._log(f"Fetch Data — {len(selected)} supplier(s) selected.")
         for supplier in selected:
@@ -433,17 +447,33 @@ class ShipmentApp:
                 messagebox.showerror("Error", f"No file available for supplier: {s}")
                 return
 
-        # Find common FY sheets
+        # Find common FY sheets — run in background to avoid blocking UI
         self.status_var.set("Detecting common FY sheets…")
+        self.process_btn.configure(state="disabled")
+        self.fetch_btn.configure(state="disabled")
         self.root.update_idletasks()
 
-        common_sheets = self._find_common_fy_sheets(supplier_files)
+        def _detect():
+            sheets, err = [], ""
+            try:
+                sheets = self._find_common_fy_sheets(supplier_files)
+            except Exception as e:
+                err = str(e)
+            self.root.after(0, lambda: self._on_sheets_detected(sheets, err, supplier_files))
+
+        threading.Thread(target=_detect, daemon=True).start()
+
+    def _on_sheets_detected(self, common_sheets: list, err: str, supplier_files: dict):
+        self._re_enable_buttons()
+        if err:
+            messagebox.showerror("Error", err)
+            self.status_var.set("Ready.")
+            return
         if not common_sheets:
             messagebox.showerror("Error", "No common FY sheets found across all selected suppliers.")
             self.status_var.set("Ready.")
             return
 
-        # Show FY selection dialog
         chosen_sheet = self._ask_fy_sheet(common_sheets)
         if not chosen_sheet:
             self.status_var.set("Ready.")
@@ -454,13 +484,11 @@ class ShipmentApp:
         self.status_var.set(f"Processing {chosen_sheet}…")
         self.root.update_idletasks()
 
-        # Run in background thread to keep UI responsive
-        thread = threading.Thread(
+        threading.Thread(
             target=self._run_processing,
             args=(supplier_files, chosen_sheet),
             daemon=True,
-        )
-        thread.start()
+        ).start()
 
     def _find_common_fy_sheets(self, supplier_files: dict) -> list[str]:
         """Return FY sheets present in ALL supplier files."""
@@ -537,7 +565,6 @@ class ShipmentApp:
             frames = []
             for supplier, file_path in supplier_files.items():
                 self._log(f"  Processing {supplier}: {Path(str(file_path)).name}")
-                from src.processing.transformer import copy_source_file, process_supplier_sheet
                 copy_source_file(str(file_path), self.source_data_dir)
                 df = process_supplier_sheet(str(file_path), sheet_name, supplier)
                 if not df.empty:
@@ -650,13 +677,26 @@ class ShipmentApp:
             if not selected_fy:
                 messagebox.showwarning("Warning", "No FY selected for export.")
                 return
-            out_path = merge_for_powerbi(selected_fy, self.history_dir, self.output_dir)
-            if out_path:
-                messagebox.showinfo("Export Complete",
-                                    f"PowerBI file saved to:\n{out_path}")
-                self.status_var.set(f"PowerBI export: {Path(out_path).name}")
-            else:
-                messagebox.showerror("Error", "PowerBI export failed.")
+            self.status_var.set("Merging PowerBI export…")
+            self.powerbi_btn.configure(state="disabled")
+
+            def _do_export():
+                try:
+                    out_path = merge_for_powerbi(selected_fy, self.history_dir, self.output_dir)
+                except Exception as e:
+                    self.root.after(0, lambda: messagebox.showerror("Export Error", str(e)))
+                    self.root.after(0, lambda: self.powerbi_btn.configure(state="normal"))
+                    return
+                if out_path:
+                    self.root.after(0, lambda: (
+                        messagebox.showinfo("Export Complete", f"PowerBI file saved to:\n{out_path}"),
+                        self.status_var.set(f"PowerBI export: {Path(out_path).name}"),
+                    ))
+                else:
+                    self.root.after(0, lambda: messagebox.showerror("Error", "PowerBI export failed."))
+                self.root.after(0, lambda: self.powerbi_btn.configure(state="normal"))
+
+            threading.Thread(target=_do_export, daemon=True).start()
 
     # ─────────────────────────────────────────────────────────────────────────
     # Window close
