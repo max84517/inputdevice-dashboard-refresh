@@ -13,3 +13,8 @@ pandas = "^2.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pyinstaller (>=6,<7) ; python_version >= \"3.11\" and python_version < \"3.15\""
+]

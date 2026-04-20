@@ -82,7 +82,8 @@ class ShipmentApp:
         self.project_root = Path(__file__).parent.parent.parent
         self.source_data_dir = str(self.project_root / "data" / "source_data")
         self.history_dir = str(self.project_root / "data" / "history")
-        self.output_dir = str(self.project_root / "data" / "output")
+        self._default_output_dir = str(self.project_root / "data" / "output")
+        self.output_dir = self.cfg.get("output_dir", self._default_output_dir)
 
         self._build_ui()
         self._restore_state()
@@ -115,6 +116,23 @@ class ShipmentApp:
         _style_btn(browse_btn)
         browse_btn.grid(row=1, column=1)
         top.columnconfigure(0, weight=1)
+
+        # ── Output path selector ──────────────────────────────────────
+        tk.Label(top, text="Output Folder (PowerBI Export)", bg=BG, fg=FG,
+                 font=FONT_BOLD).grid(row=2, column=0, sticky="w", pady=(8, 0))
+
+        self.output_var = tk.StringVar(value=self.output_dir)
+        output_entry = tk.Entry(top, textvariable=self.output_var, bg=ENTRY_BG, fg=FG,
+                                insertbackground=FG, font=FONT, relief="flat", bd=3)
+        output_entry.grid(row=3, column=0, sticky="ew", padx=(0, 8), ipady=4)
+
+        out_browse_btn = tk.Button(top, text="Browse…", command=self._browse_output_path)
+        _style_btn(out_browse_btn)
+        out_browse_btn.grid(row=3, column=1)
+
+        reset_out_btn = tk.Button(top, text="Reset", command=self._reset_output_path)
+        _style_btn(reset_out_btn, bg=BG3, hover="#555555")
+        reset_out_btn.grid(row=3, column=2, padx=(4, 0))
 
         # ── Supplier list section ────────────────────────────────────────────
         mid = tk.Frame(self.root, bg=BG, padx=14)
@@ -298,6 +316,18 @@ class ShipmentApp:
             self.path_var.set(path)
             self._populate_suppliers(path)
             save_config({"base_path": path})
+
+    def _browse_output_path(self):
+        path = filedialog.askdirectory(title="Select Output Folder for PowerBI Export")
+        if path:
+            self.output_var.set(path)
+            self.output_dir = path
+            save_config({"output_dir": path})
+
+    def _reset_output_path(self):
+        self.output_dir = self._default_output_dir
+        self.output_var.set(self._default_output_dir)
+        save_config({"output_dir": self._default_output_dir})
 
     # ─────────────────────────────────────────────────────────────────────────
     # Supplier Checkboxes
@@ -679,10 +709,12 @@ class ShipmentApp:
                 return
             self.status_var.set("Merging PowerBI export…")
             self.powerbi_btn.configure(state="disabled")
+            # Capture current output dir at the moment of export
+            out_dir = self.output_var.get().strip() or self._default_output_dir
 
             def _do_export():
                 try:
-                    out_path = merge_for_powerbi(selected_fy, self.history_dir, self.output_dir)
+                    out_path = merge_for_powerbi(selected_fy, self.history_dir, out_dir)
                 except Exception as e:
                     self.root.after(0, lambda: messagebox.showerror("Export Error", str(e)))
                     self.root.after(0, lambda: self.powerbi_btn.configure(state="normal"))

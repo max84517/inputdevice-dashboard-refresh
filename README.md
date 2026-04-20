@@ -57,7 +57,11 @@ Use the **⚙ Columns** button to add, remove, or reorder columns. Changes are s
 - Python ≥ 3.11
 - [Poetry](https://python-poetry.org/) ≥ 1.8
 
-## Setup
+## Quick Start (No Python Required)
+
+Download **`InputDevice_Dashboard_Refresh.exe`** from the [latest release](https://github.com/max84517/inputdevice-dashboard-refresh/releases/latest) and run it directly — no installation needed.
+
+## Setup (Development)
 
 ```bash
 # Install dependencies (creates .venv in project folder)
@@ -66,6 +70,14 @@ poetry install
 # Run the app
 poetry run python main.py
 ```
+
+## Build Executable
+
+```bash
+poetry run pyinstaller inputdevice.spec --distpath dist --workpath build --noconfirm
+```
+
+Output: `dist/InputDevice_Dashboard_Refresh.exe`
 
 ## Expected Folder Structure (source data)
 
