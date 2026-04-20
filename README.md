@@ -59,7 +59,11 @@ Use the **⚙ Columns** button to add, remove, or reorder columns. Changes are s
 
 ## Quick Start (No Python Required)
 
-Download **`InputDevice_Dashboard_Refresh.exe`** from the [latest release](https://github.com/max84517/inputdevice-dashboard-refresh/releases/latest) and run it directly — no installation needed.
+1. Download **`InputDevice_Dashboard_Refresh.zip`** from the [latest release](https://github.com/max84517/inputdevice-dashboard-refresh/releases/latest)
+2. Extract the zip to any folder
+3. Run **`InputDevice_Dashboard_Refresh.exe`** inside the extracted folder
+
+> `config.json` is saved next to the exe — your path settings persist across restarts.
 
 ## Setup (Development)
 
@@ -77,7 +81,7 @@ poetry run python main.py
 poetry run pyinstaller inputdevice.spec --distpath dist --workpath build --noconfirm
 ```
 
-Output: `dist/InputDevice_Dashboard_Refresh.exe`
+Output: `dist/InputDevice_Dashboard_Refresh/` (zip before distributing)
 
 ## Expected Folder Structure (source data)
 
