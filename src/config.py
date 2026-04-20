@@ -1,8 +1,17 @@
 """Persistent configuration management using JSON."""
 import json
 import os
+import sys
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+# When running as a PyInstaller frozen exe, __file__ points to the temporary
+# extraction folder (_MEIxxxxxx) which is deleted on exit.  Use the directory
+# that contains the exe instead so config.json persists next to the exe.
+if getattr(sys, "frozen", False):
+    _BASE_DIR = os.path.dirname(sys.executable)
+else:
+    _BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+
+CONFIG_PATH = os.path.join(_BASE_DIR, "config.json")
 
 
 def load_config() -> dict:
