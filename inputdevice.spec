@@ -61,9 +61,8 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='InputDevice_Dashboard_Refresh',
     debug=False,
     bootloader_ignore_signals=False,
@@ -80,3 +79,12 @@ exe = EXE(
     icon=None,
 )
 
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='InputDevice_Dashboard_Refresh',
+)
