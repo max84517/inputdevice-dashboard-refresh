@@ -8,7 +8,7 @@ A Python desktop tool that consolidates scattered **Spending & Rebate shipment r
 - **Persistent settings** — base path, supplier selection, and column configuration are saved to `config.json` and restored on next launch
 - **Smart file detection** — automatically picks the most recently modified Excel inside each supplier's `Spending and rebate` folder
 - **Wide → long pivot** — reads `FYXX` sheets (header on row 2), melts value columns (`Table Price`, `Unit Rebate`, `Q'ty`, `Rebate Amount`) into a long format per month using vectorized `pd.melt`
-- **Derived columns** — computes `HP Cost`, `ODM Cost`, `Spending Amount`, `Actual Spending`, `Month`, `Year`, `FY` (e.g. `FY26 Q2`)
+- **Derived columns** — computes `ODM Cost` (= Table Price from source), `HP Cost` (= ODM Cost − Unit Rebate), `Spending Amount` (= ODM Cost × Q'ty), `Actual Spending` (= HP Cost × Q'ty), `Month`, `Year`, `FY` (e.g. `FY26 Q2`)
 - **Merged-cell handling** — forward-fills feature columns to fill gaps from merged cells
 - **Data quality** — drops rows where `Platforms` is blank, fills missing value cells with `0`, removes FY/month/empty/supplier-specific-only columns, drops the original `GTK Suppliers` source column and replaces it with the folder name
 - **Column filter** — configurable keep-columns list (⚙ Columns button); only the selected columns appear in output, in the defined order

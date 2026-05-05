@@ -156,7 +156,7 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
     # Melt each value type separately, then merge on (feature_cols + month)
     melted_parts: list[pd.DataFrame] = []
     out_names = {
-        "Table Price": "HP Cost",
+        "Table Price": "ODM Cost",
         "Unit Rebate": "Unit Rebate",
         "Q'ty": "Q'ty",
         "Rebate Amount": "Rebate Amount",
@@ -191,7 +191,7 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
             long_df[_vc] = long_df[_vc].fillna(0)
 
     # Derive columns
-    long_df["ODM Cost"] = long_df["HP Cost"] + long_df["Unit Rebate"]
+    long_df["HP Cost"] = long_df["ODM Cost"] - long_df["Unit Rebate"]
     long_df["Spending Amount"] = long_df["ODM Cost"] * long_df["Q'ty"]
     long_df["Actual Spending"] = long_df["HP Cost"] * long_df["Q'ty"]
 
