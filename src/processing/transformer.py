@@ -261,6 +261,7 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
         long_df.drop(columns=empty_cols, inplace=True)
 
     long_df.reset_index(drop=True, inplace=True)
+    long_df.drop_duplicates(inplace=True)
 
     return long_df
 
