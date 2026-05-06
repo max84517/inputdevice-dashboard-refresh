@@ -133,6 +133,9 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
 
     df = df.reset_index(drop=True)
 
+    # Add a unique row ID to prevent cross-join when merging melted parts
+    df.insert(0, "__id", range(len(df)))
+
     # Forward-fill & strip feature columns (merged-cell handling)
     for col in feature_cols:
         df[col] = df[col].ffill()
@@ -141,6 +144,9 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
     # Drop feature columns whose name contains "FY" (e.g. "FY24", "FY Year")
     feature_cols = [c for c in feature_cols if "FY" not in str(col).upper() or col == col]
     feature_cols = [c for c in feature_cols if "FY" not in str(c).upper()]
+
+    # Include __id in feature_cols so merges stay per-row (no cross-join)
+    merge_keys = ["__id"] + feature_cols
 
     # ── Vectorized wide → long using pd.melt ─────────────────────────────────
     # Build per-type rename maps: {original_col: month_abbr}
@@ -168,11 +174,11 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
         cols_to_melt = list(col_map.keys())
         # Rename to month abbr before melting so 'value' column carries month
         rename_map = {c: col_map[c] for c in cols_to_melt}
-        sub = df[feature_cols + cols_to_melt].copy()
+        sub = df[merge_keys + cols_to_melt].copy()
         sub.rename(columns=rename_map, inplace=True)
         # After rename, melt month columns
         month_cols = list(col_map.values())
-        melted = sub.melt(id_vars=feature_cols, value_vars=month_cols,
+        melted = sub.melt(id_vars=merge_keys, value_vars=month_cols,
                           var_name="__month", value_name=out_names[vtype])
         melted[out_names[vtype]] = pd.to_numeric(melted[out_names[vtype]], errors="coerce")
         melted_parts.append(melted)
@@ -180,13 +186,16 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
     if not melted_parts:
         return pd.DataFrame()
 
-    # Merge all value types on feature_cols + __month
+    # Merge all value types on merge_keys + __month (__id prevents cross-join)
     long_df = melted_parts[0]
     for part in melted_parts[1:]:
-        long_df = long_df.merge(part, on=feature_cols + ["__month"], how="outer")
+        long_df = long_df.merge(part, on=merge_keys + ["__month"], how="outer")
+
+    # Drop the temporary row ID
+    long_df.drop(columns=["__id"], inplace=True)
 
     # Fill blank value columns with 0
-    for _vc in ["HP Cost", "Unit Rebate", "Q'ty", "Rebate Amount"]:
+    for _vc in ["ODM Cost", "Unit Rebate", "Q'ty", "Rebate Amount"]:
         if _vc in long_df.columns:
             long_df[_vc] = long_df[_vc].fillna(0)
 
@@ -252,7 +261,6 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
         long_df.drop(columns=empty_cols, inplace=True)
 
     long_df.reset_index(drop=True, inplace=True)
-    long_df.drop_duplicates(inplace=True)
 
     return long_df
 
