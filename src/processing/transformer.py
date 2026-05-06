@@ -195,7 +195,7 @@ def process_supplier_sheet(file_path: str, sheet_name: str, supplier_name: str) 
     long_df.drop(columns=["__id"], inplace=True)
 
     # Fill blank value columns with 0
-    for _vc in ["HP Cost", "Unit Rebate", "Q'ty", "Rebate Amount"]:
+    for _vc in ["ODM Cost", "Unit Rebate", "Q'ty", "Rebate Amount"]:
         if _vc in long_df.columns:
             long_df[_vc] = long_df[_vc].fillna(0)
 
